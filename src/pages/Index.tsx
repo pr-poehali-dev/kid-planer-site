@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
@@ -24,6 +25,16 @@ interface Note {
   timestamp: string;
 }
 
+interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  requirement: number;
+  category: 'tasks' | 'homework' | 'streak';
+}
+
 const Index = () => {
   const [tasks, setTasks] = useState<Task[]>([
     { id: 1, title: 'Сделать математику', completed: false, deadline: '2025-11-25', type: 'homework' },
@@ -39,19 +50,80 @@ const Index = () => {
 
   const [newTask, setNewTask] = useState('');
   const [newNote, setNewNote] = useState('');
-  const [completedCount, setCompletedCount] = useState(1);
+  const [stars, setStars] = useState(10);
+  const [level, setLevel] = useState(1);
+  const [showReward, setShowReward] = useState(false);
+
+  const [achievements, setAchievements] = useState<Achievement[]>([
+    { id: 'first_task', title: 'Первый шаг', description: 'Выполни первое дело', icon: '🌟', unlocked: true, requirement: 1, category: 'tasks' },
+    { id: 'five_tasks', title: 'Работяга', description: 'Выполни 5 дел', icon: '💪', unlocked: false, requirement: 5, category: 'tasks' },
+    { id: 'ten_tasks', title: 'Супергерой', description: 'Выполни 10 дел', icon: '🦸', unlocked: false, requirement: 10, category: 'tasks' },
+    { id: 'homework_master', title: 'Отличник', description: 'Выполни 5 домашних заданий', icon: '📚', unlocked: false, requirement: 5, category: 'homework' },
+    { id: 'streak_3', title: 'На волне', description: 'Выполняй дела 3 дня подряд', icon: '🔥', unlocked: false, requirement: 3, category: 'streak' },
+    { id: 'streak_7', title: 'Не остановить', description: 'Выполняй дела 7 дней подряд', icon: '⚡', unlocked: false, requirement: 7, category: 'streak' },
+  ]);
+
+  const completedTasks = tasks.filter(t => t.completed).length;
+  const completedHomework = tasks.filter(t => t.completed && t.type === 'homework').length;
+
+  useEffect(() => {
+    const newLevel = Math.floor(stars / 10) + 1;
+    if (newLevel > level) {
+      setLevel(newLevel);
+      toast.success(`🎊 Поздравляю! Ты достиг ${newLevel} уровня!`, {
+        description: `Ты настоящая звезда! Продолжай в том же духе!`,
+        duration: 5000,
+      });
+    }
+  }, [stars, level]);
+
+  useEffect(() => {
+    checkAchievements();
+  }, [completedTasks, completedHomework]);
+
+  const checkAchievements = () => {
+    setAchievements(prevAchievements => 
+      prevAchievements.map(achievement => {
+        if (achievement.unlocked) return achievement;
+        
+        let shouldUnlock = false;
+        
+        if (achievement.category === 'tasks' && completedTasks >= achievement.requirement) {
+          shouldUnlock = true;
+        } else if (achievement.category === 'homework' && completedHomework >= achievement.requirement) {
+          shouldUnlock = true;
+        }
+        
+        if (shouldUnlock) {
+          toast.success(`🏆 Новое достижение: ${achievement.title}!`, {
+            description: achievement.description,
+            duration: 5000,
+          });
+          setStars(prev => prev + 5);
+          return { ...achievement, unlocked: true };
+        }
+        
+        return achievement;
+      })
+    );
+  };
 
   const toggleTask = (id: number) => {
     setTasks(tasks.map(task => {
       if (task.id === id) {
         const newCompleted = !task.completed;
         if (newCompleted) {
-          setCompletedCount(prev => prev + 1);
+          const earnedStars = task.type === 'homework' ? 3 : 2;
+          setStars(prev => prev + earnedStars);
+          setShowReward(true);
+          setTimeout(() => setShowReward(false), 2000);
+          
           toast.success('Отлично! Задание выполнено! 🎉', {
-            description: `Ты молодец! Уже ${completedCount + 1} дел сделано!`,
+            description: `Ты заработал ${earnedStars} ${earnedStars === 2 ? 'звезды' : 'звезды'}! ⭐`,
           });
         } else {
-          setCompletedCount(prev => Math.max(0, prev - 1));
+          const lostStars = task.type === 'homework' ? 3 : 2;
+          setStars(prev => Math.max(0, prev - lostStars));
         }
         return { ...task, completed: newCompleted };
       }
@@ -95,6 +167,7 @@ const Index = () => {
   };
 
   const urgentTasks = getUrgentTasks();
+  const progressToNextLevel = (stars % 10) * 10;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-yellow-50 p-4 md:p-8">
@@ -110,6 +183,44 @@ const Index = () => {
           </div>
           <p className="text-lg text-muted-foreground">Управляй своим временем как супергерой!</p>
         </div>
+
+        {showReward && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+            <div className="text-9xl animate-pop">⭐</div>
+          </div>
+        )}
+
+        <Card className="bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-400 text-white shadow-2xl border-4 border-yellow-500 animate-scale-in">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center">
+                <div className="text-6xl font-bold mb-2 flex items-center justify-center gap-2">
+                  <span className="animate-pop">⭐</span>
+                  <span>{stars}</span>
+                </div>
+                <p className="text-white/90 font-medium">Звезд собрано</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-6xl font-bold mb-2 flex items-center justify-center gap-2">
+                  <span className="animate-pop" style={{ animationDelay: '0.1s' }}>🏆</span>
+                  <span>{level}</span>
+                </div>
+                <p className="text-white/90 font-medium">Уровень</p>
+                <Progress value={progressToNextLevel} className="mt-2 h-3 bg-white/30" />
+                <p className="text-sm text-white/80 mt-1">{10 - (stars % 10)} звезд до {level + 1} уровня</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-6xl font-bold mb-2 flex items-center justify-center gap-2">
+                  <span className="animate-pop" style={{ animationDelay: '0.2s' }}>🎖️</span>
+                  <span>{achievements.filter(a => a.unlocked).length}</span>
+                </div>
+                <p className="text-white/90 font-medium">Достижений</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {urgentTasks.length > 0 && (
           <Card className="border-4 border-red-400 bg-red-50 wiggle shadow-lg">
@@ -144,7 +255,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-5xl font-bold">{completedCount}/{tasks.length}</div>
+              <div className="text-5xl font-bold">{completedTasks}/{tasks.length}</div>
               <p className="text-purple-100 mt-2">дел выполнено</p>
             </CardContent>
           </Card>
@@ -179,7 +290,7 @@ const Index = () => {
         </div>
 
         <Tabs defaultValue="schedule" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 h-auto p-2 bg-white shadow-lg">
+          <TabsList className="grid w-full grid-cols-5 h-auto p-2 bg-white shadow-lg">
             <TabsTrigger value="schedule" className="text-sm md:text-base py-3 data-[state=active]:bg-purple-500 data-[state=active]:text-white">
               <Icon name="Calendar" className="mr-2" size={18} />
               Дела
@@ -187,6 +298,10 @@ const Index = () => {
             <TabsTrigger value="homework" className="text-sm md:text-base py-3 data-[state=active]:bg-yellow-500 data-[state=active]:text-white">
               <Icon name="BookOpen" className="mr-2" size={18} />
               Домашка
+            </TabsTrigger>
+            <TabsTrigger value="achievements" className="text-sm md:text-base py-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+              <Icon name="Award" className="mr-2" size={18} />
+              Награды
             </TabsTrigger>
             <TabsTrigger value="notes-child" className="text-sm md:text-base py-3 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
               <Icon name="Pencil" className="mr-2" size={18} />
@@ -204,6 +319,7 @@ const Index = () => {
                 <CardTitle className="flex items-center gap-2 text-2xl">
                   <span className="text-3xl">📅</span>
                   Расписание дел
+                  <Badge className="ml-auto bg-purple-500">+2 ⭐ за дело</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -251,6 +367,7 @@ const Index = () => {
                 <CardTitle className="flex items-center gap-2 text-2xl">
                   <span className="text-3xl">📚</span>
                   Домашние задания
+                  <Badge className="ml-auto bg-yellow-500">+3 ⭐ за задание</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -294,6 +411,63 @@ const Index = () => {
                           )}
                         </div>
                         {task.completed && <span className="text-2xl animate-pop">✅</span>}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="achievements" className="space-y-4">
+            <Card className="shadow-xl animate-scale-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-2xl">
+                  <span className="text-3xl">🏆</span>
+                  Коллекция достижений
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {achievements.map((achievement, index) => (
+                    <Card 
+                      key={achievement.id}
+                      className={`p-4 transition-all hover:shadow-lg ${
+                        achievement.unlocked 
+                          ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-400' 
+                          : 'bg-gray-50 opacity-60'
+                      }`}
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className={`text-5xl ${achievement.unlocked ? 'animate-pop' : 'grayscale'}`}>
+                          {achievement.icon}
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">{achievement.title}</h3>
+                          <p className="text-sm text-muted-foreground mb-2">{achievement.description}</p>
+                          {achievement.unlocked ? (
+                            <Badge className="bg-green-500">Получено! ✓</Badge>
+                          ) : (
+                            <div className="space-y-1">
+                              <Progress 
+                                value={
+                                  achievement.category === 'tasks' 
+                                    ? (completedTasks / achievement.requirement) * 100
+                                    : achievement.category === 'homework'
+                                    ? (completedHomework / achievement.requirement) * 100
+                                    : 0
+                                } 
+                                className="h-2"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {achievement.category === 'tasks' && `${completedTasks}/${achievement.requirement}`}
+                                {achievement.category === 'homework' && `${completedHomework}/${achievement.requirement}`}
+                                {achievement.category === 'streak' && `0/${achievement.requirement} дней`}
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </Card>
                   ))}
