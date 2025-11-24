@@ -35,6 +35,25 @@ interface Achievement {
   category: 'tasks' | 'homework' | 'streak';
 }
 
+interface Prize {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  cost: number;
+  category: 'fun' | 'time' | 'special';
+  purchased: boolean;
+}
+
+interface PurchaseHistory {
+  id: number;
+  prizeId: string;
+  prizeTitle: string;
+  prizeIcon: string;
+  cost: number;
+  date: string;
+}
+
 const Index = () => {
   const [tasks, setTasks] = useState<Task[]>([
     { id: 1, title: 'Сделать математику', completed: false, deadline: '2025-11-25', type: 'homework' },
@@ -50,9 +69,25 @@ const Index = () => {
 
   const [newTask, setNewTask] = useState('');
   const [newNote, setNewNote] = useState('');
-  const [stars, setStars] = useState(10);
+  const [stars, setStars] = useState(50);
   const [level, setLevel] = useState(1);
   const [showReward, setShowReward] = useState(false);
+  const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistory[]>([]);
+
+  const [prizes, setPrizes] = useState<Prize[]>([
+    { id: 'ice_cream', title: 'Мороженое', description: 'Вкусное мороженое на выбор', icon: '🍦', cost: 10, category: 'fun', purchased: false },
+    { id: 'movie', title: 'Фильм вечером', description: 'Посмотреть любимый фильм', icon: '🎬', cost: 15, category: 'fun', purchased: false },
+    { id: 'pizza', title: 'Пицца', description: 'Заказать пиццу на ужин', icon: '🍕', cost: 20, category: 'fun', purchased: false },
+    { id: 'game_time', title: '+30 мин игр', description: 'Дополнительное время для игр', icon: '🎮', cost: 12, category: 'time', purchased: false },
+    { id: 'late_sleep', title: 'Лечь попозже', description: '+30 минут перед сном', icon: '🌙', cost: 18, category: 'time', purchased: false },
+    { id: 'no_homework', title: 'Выходной день', description: 'Один день без домашки', icon: '🏖️', cost: 35, category: 'special', purchased: false },
+    { id: 'toy', title: 'Новая игрушка', description: 'Небольшая игрушка на выбор', icon: '🎁', cost: 25, category: 'fun', purchased: false },
+    { id: 'park', title: 'Поход в парк', description: 'Прогулка в парк развлечений', icon: '🎡', cost: 40, category: 'special', purchased: false },
+    { id: 'candy', title: 'Сладости', description: 'Любимые конфеты или шоколад', icon: '🍬', cost: 8, category: 'fun', purchased: false },
+    { id: 'pet_time', title: 'День с питомцем', description: 'Целый день заботы о питомце', icon: '🐕', cost: 15, category: 'time', purchased: false },
+    { id: 'art', title: 'Набор для творчества', description: 'Краски, карандаши или пластилин', icon: '🎨', cost: 30, category: 'fun', purchased: false },
+    { id: 'adventure', title: 'Приключение', description: 'Семейный поход или экскурсия', icon: '🏔️', cost: 50, category: 'special', purchased: false },
+  ]);
 
   const [achievements, setAchievements] = useState<Achievement[]>([
     { id: 'first_task', title: 'Первый шаг', description: 'Выполни первое дело', icon: '🌟', unlocked: true, requirement: 1, category: 'tasks' },
@@ -159,6 +194,42 @@ const Index = () => {
     setNotes([...notes, note]);
     setNewNote('');
     toast.success('Заметка отправлена! 📝');
+  };
+
+  const buyPrize = (prizeId: string) => {
+    const prize = prizes.find(p => p.id === prizeId);
+    if (!prize || prize.purchased) return;
+    
+    if (stars < prize.cost) {
+      toast.error('Недостаточно звезд! ⭐', {
+        description: `Нужно еще ${prize.cost - stars} звезд`,
+      });
+      return;
+    }
+    
+    setStars(prev => prev - prize.cost);
+    setPrizes(prizes.map(p => p.id === prizeId ? { ...p, purchased: true } : p));
+    
+    const purchase: PurchaseHistory = {
+      id: Date.now(),
+      prizeId: prize.id,
+      prizeTitle: prize.title,
+      prizeIcon: prize.icon,
+      cost: prize.cost,
+      date: new Date().toLocaleDateString('ru-RU'),
+    };
+    
+    setPurchaseHistory([purchase, ...purchaseHistory]);
+    
+    toast.success(`🎉 Поздравляю! Ты купил: ${prize.title}!`, {
+      description: 'Покажи это родителям, чтобы получить приз!',
+      duration: 5000,
+    });
+  };
+
+  const resetPrize = (prizeId: string) => {
+    setPrizes(prizes.map(p => p.id === prizeId ? { ...p, purchased: false } : p));
+    toast.success('Приз снова доступен в магазине!');
   };
 
   const getUrgentTasks = () => {
@@ -290,7 +361,7 @@ const Index = () => {
         </div>
 
         <Tabs defaultValue="schedule" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 h-auto p-2 bg-white shadow-lg">
+          <TabsList className="grid w-full grid-cols-6 h-auto p-2 bg-white shadow-lg">
             <TabsTrigger value="schedule" className="text-sm md:text-base py-3 data-[state=active]:bg-purple-500 data-[state=active]:text-white">
               <Icon name="Calendar" className="mr-2" size={18} />
               Дела
@@ -302,6 +373,10 @@ const Index = () => {
             <TabsTrigger value="achievements" className="text-sm md:text-base py-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
               <Icon name="Award" className="mr-2" size={18} />
               Награды
+            </TabsTrigger>
+            <TabsTrigger value="shop" className="text-sm md:text-base py-3 data-[state=active]:bg-pink-500 data-[state=active]:text-white">
+              <Icon name="ShoppingBag" className="mr-2" size={18} />
+              Магазин
             </TabsTrigger>
             <TabsTrigger value="notes-child" className="text-sm md:text-base py-3 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
               <Icon name="Pencil" className="mr-2" size={18} />
@@ -474,6 +549,227 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="shop" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-4">
+                <Card className="shadow-xl animate-scale-in bg-gradient-to-br from-pink-50 to-purple-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-2xl">
+                      <span className="text-3xl">🎁</span>
+                      Магазин призов
+                      <Badge className="ml-auto bg-pink-500 text-lg px-3 py-1">
+                        {stars} ⭐ доступно
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                          🎉 Развлечения
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {prizes.filter(p => p.category === 'fun').map((prize, index) => (
+                            <Card 
+                              key={prize.id}
+                              className={`p-4 transition-all hover:shadow-lg ${
+                                prize.purchased 
+                                  ? 'bg-gray-100 opacity-50' 
+                                  : 'bg-white hover:scale-105 cursor-pointer'
+                              }`}
+                              style={{ animationDelay: `${index * 0.05}s` }}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="text-4xl">{prize.icon}</div>
+                                <div className="flex-1">
+                                  <h4 className="font-bold mb-1">{prize.title}</h4>
+                                  <p className="text-sm text-muted-foreground mb-2">{prize.description}</p>
+                                  <div className="flex items-center justify-between">
+                                    <Badge className="bg-yellow-500 text-base">
+                                      {prize.cost} ⭐
+                                    </Badge>
+                                    {prize.purchased ? (
+                                      <Badge className="bg-green-500">Куплено ✓</Badge>
+                                    ) : (
+                                      <Button 
+                                        size="sm" 
+                                        onClick={() => buyPrize(prize.id)}
+                                        disabled={stars < prize.cost}
+                                        className="bg-pink-500 hover:bg-pink-600"
+                                      >
+                                        Купить
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                          ⏰ Время
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {prizes.filter(p => p.category === 'time').map((prize, index) => (
+                            <Card 
+                              key={prize.id}
+                              className={`p-4 transition-all hover:shadow-lg ${
+                                prize.purchased 
+                                  ? 'bg-gray-100 opacity-50' 
+                                  : 'bg-white hover:scale-105 cursor-pointer'
+                              }`}
+                              style={{ animationDelay: `${index * 0.05}s` }}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="text-4xl">{prize.icon}</div>
+                                <div className="flex-1">
+                                  <h4 className="font-bold mb-1">{prize.title}</h4>
+                                  <p className="text-sm text-muted-foreground mb-2">{prize.description}</p>
+                                  <div className="flex items-center justify-between">
+                                    <Badge className="bg-yellow-500 text-base">
+                                      {prize.cost} ⭐
+                                    </Badge>
+                                    {prize.purchased ? (
+                                      <Badge className="bg-green-500">Куплено ✓</Badge>
+                                    ) : (
+                                      <Button 
+                                        size="sm" 
+                                        onClick={() => buyPrize(prize.id)}
+                                        disabled={stars < prize.cost}
+                                        className="bg-pink-500 hover:bg-pink-600"
+                                      >
+                                        Купить
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                          ✨ Особенные
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {prizes.filter(p => p.category === 'special').map((prize, index) => (
+                            <Card 
+                              key={prize.id}
+                              className={`p-4 transition-all hover:shadow-lg border-2 ${
+                                prize.purchased 
+                                  ? 'bg-gray-100 opacity-50 border-gray-300' 
+                                  : 'bg-gradient-to-br from-yellow-50 to-orange-50 border-orange-300 hover:scale-105 cursor-pointer'
+                              }`}
+                              style={{ animationDelay: `${index * 0.05}s` }}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="text-4xl">{prize.icon}</div>
+                                <div className="flex-1">
+                                  <h4 className="font-bold mb-1">{prize.title}</h4>
+                                  <p className="text-sm text-muted-foreground mb-2">{prize.description}</p>
+                                  <div className="flex items-center justify-between">
+                                    <Badge className="bg-orange-500 text-base">
+                                      {prize.cost} ⭐
+                                    </Badge>
+                                    {prize.purchased ? (
+                                      <Badge className="bg-green-500">Куплено ✓</Badge>
+                                    ) : (
+                                      <Button 
+                                        size="sm" 
+                                        onClick={() => buyPrize(prize.id)}
+                                        disabled={stars < prize.cost}
+                                        className="bg-pink-500 hover:bg-pink-600"
+                                      >
+                                        Купить
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <Card className="shadow-xl bg-gradient-to-br from-green-50 to-emerald-50 sticky top-4">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                      <span className="text-2xl">🛒</span>
+                      Мои покупки
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {purchaseHistory.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <div className="text-5xl mb-3">🎁</div>
+                        <p>Пока нет покупок</p>
+                        <p className="text-sm mt-1">Копи звезды и покупай призы!</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                        {purchaseHistory.map((purchase, index) => (
+                          <Card 
+                            key={purchase.id}
+                            className="p-3 bg-white hover:shadow-md transition-all"
+                            style={{ animationDelay: `${index * 0.05}s` }}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="text-3xl">{purchase.prizeIcon}</div>
+                              <div className="flex-1">
+                                <h4 className="font-bold text-sm">{purchase.prizeTitle}</h4>
+                                <p className="text-xs text-muted-foreground mt-1">{purchase.date}</p>
+                                <div className="flex items-center justify-between mt-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {purchase.cost} ⭐
+                                  </Badge>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => resetPrize(purchase.prizeId)}
+                                    className="h-6 text-xs"
+                                  >
+                                    Вернуть
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-xl bg-gradient-to-br from-blue-50 to-cyan-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <span className="text-2xl">💡</span>
+                      Подсказка
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground space-y-2">
+                    <p>• Дела = +2 ⭐</p>
+                    <p>• Домашка = +3 ⭐</p>
+                    <p>• Достижения = +5 ⭐</p>
+                    <p className="mt-4 font-medium text-foreground">
+                      Покажи купленный приз родителям, чтобы получить его! 🎁
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="notes-child" className="space-y-4">
